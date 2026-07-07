@@ -1,410 +1,158 @@
-import { useState } from "react";
-import {
-  Button,
-  TextField,
-  Card,
-  CardContent,
-  IconButton,
-  List,
-  ListItem,
-  ListItemText,
-  Chip,
-  Snackbar,
-  Alert,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from "@mui/material";
-import {
-  Shuffle,
-  Male,
-  Female,
-  ContentCopy,
-  RotateLeft,
-} from "@mui/icons-material";
+import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { Typography, Snackbar, Alert, type AlertColor } from "@mui/material";
+import ShuffleRoundedIcon from "@mui/icons-material/ShuffleRounded";
+import RotateLeftRoundedIcon from "@mui/icons-material/RotateLeftRounded";
+import { GlassButton } from "@/components/ui/GlassButton";
+import { ConfirmSheet } from "@/components/ui/ConfirmSheet";
+import { PlayerList } from "@/components/players/PlayerList";
+import { MemberPicker } from "@/components/players/MemberPicker";
+import { TeamsCaptureArea } from "@/components/teams/TeamsCaptureArea";
+import { TeamsShareBar } from "@/components/teams/TeamsShareBar";
+import { useMembers } from "@/data/indexedDb/useMembers";
+import { useDrawHistory } from "@/hooks/useDrawHistory";
+import { buildTeams } from "@/lib/shuffle/teamDraw";
+import type { Member, Player, Team } from "@/types";
 
-type Player = {
-  id: number;
-  name: string;
-  gender: "M" | "F";
+type TeamDrawProps = {
+  players: Player[];
+  setPlayers: Dispatch<SetStateAction<Player[]>>;
+  teams: Team[];
+  setTeams: Dispatch<SetStateAction<Team[]>>;
 };
 
-interface TeamDrawProps {
-  players: Player[];
-  setPlayers: React.Dispatch<React.SetStateAction<Player[]>>;
-  teams: Player[][];
-  setTeams: React.Dispatch<React.SetStateAction<Player[][]>>;
-}
-
-const teamColors = [
-  { header: "bg-red-500", text: "text-red-500", emoji: "🔴" },
-  { header: "bg-blue-500", text: "text-blue-500", emoji: "🔵" },
-  { header: "bg-yellow-500", text: "text-yellow-500", emoji: "🟡" },
-  { header: "bg-green-500", text: "text-green-500", emoji: "🟢" },
-  { header: "bg-pink-500", text: "text-pink-500", emoji: "🌸" },
-];
+const PLAYERS_PER_TEAM = 4;
+const MIN_PLAYERS = PLAYERS_PER_TEAM * 2;
 
 function TeamDraw({ players, setPlayers, teams, setTeams }: TeamDrawProps) {
-  const [previousTeams, setPreviousTeams] = useState<Player[][]>([]);
-  const [name, setName] = useState("");
-  const [gender, setGender] = useState<"M" | "F">("M");
+  const { members } = useMembers();
+  const { history, pushDraw, clearHistory } = useDrawHistory();
+  const captureRef = useRef<HTMLDivElement>(null);
 
-  const [isResetModalOpen, setIsResetModal] = useState(false);
-  const [isShuffleModalOpen, setIsShuffleModal] = useState(false);
+  const [isResetOpen, setIsResetOpen] = useState(false);
+  const [isShuffleOpen, setIsShuffleOpen] = useState(false);
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: AlertColor;
+  }>({ open: false, message: "", severity: "success" });
 
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  const [snackbarMessage, setSnackbarMessage] = useState("");
-  const [snackbarSeverity, setSnackbarSeverity] = useState<
-    "success" | "info" | "warning" | "error"
-  >("success");
+  const showSnackbar = (message: string, severity: AlertColor) =>
+    setSnackbar({ open: true, message, severity });
 
-  const playersPerTeam = 4;
-
-  const addPlayer = () => {
-    if (name.trim() === "") return;
-    const newPlayer: Player = {
-      id: Date.now(),
-      name: name.toUpperCase(),
-      gender,
-    };
-    setPlayers([...players, newPlayer]);
-    setName("");
+  const handleRemovePlayer = (id: number) => {
+    setPlayers((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const removePlayer = (id: number) => {
-    setPlayers(players.filter((player) => player.id !== id));
-  };
-
-  const handleOpenResetModal = () => {
-    setIsResetModal(true);
-  };
-
-  const handleCloseResetModal = () => {
-    setIsResetModal(false);
+  const handleToggleMember = (member: Member) => {
+    setPlayers((prev) => {
+      const existing = prev.find((p) => p.memberId === member.id);
+      if (existing) return prev.filter((p) => p.memberId !== member.id);
+      return [
+        ...prev,
+        {
+          id: Date.now(),
+          name: member.name.toUpperCase(),
+          gender: member.gender,
+          memberId: member.id,
+        },
+      ];
+    });
   };
 
   const handleConfirmReset = () => {
     setPlayers([]);
     setTeams([]);
-    setPreviousTeams([]);
-    handleCloseResetModal();
-    setSnackbarMessage("A lista foi resetada com sucesso!");
-    setSnackbarSeverity("info");
-    setSnackbarOpen(true);
+    clearHistory();
+    setIsResetOpen(false);
+    showSnackbar("A lista foi resetada com sucesso!", "info");
   };
 
-  const handleOpenShuffleModal = () => {
-    setIsShuffleModal(true);
-  };
-
-  const handleCloseShuffleModal = () => {
-    setIsShuffleModal(false);
-  };
-
-  const shuffleTeams = () => {
-    const shuffled: Player[] = [...players].sort(() => Math.random() - 0.5);
-
-    const maxTeams = Math.ceil(shuffled.length / playersPerTeam);
-
-    let newTeams: Player[][] = Array.from({ length: maxTeams }, () => []);
-
-    const females = shuffled.filter((p) => p.gender === "F");
-    const males = shuffled.filter((p) => p.gender === "M");
-
-    for (let i = 0; i < newTeams.length; i++) {
-      if (females.length > 0) {
-        newTeams[i].push(females.pop()!);
-      }
-    }
-
-    let index = 0;
-    const remainingPlayers = [...males, ...females];
-    while (remainingPlayers.length > 0) {
-      const player = remainingPlayers.pop()!;
-      newTeams[index % maxTeams].push(player);
-      index++;
-    }
-
-    if (previousTeams.length > 0) {
-      newTeams = newTeams.map((team, i) => {
-        const prev = previousTeams[i] || [];
-        const intersection = team.filter((p) =>
-          prev.some((prevPlayer) => prevPlayer.id === p.id),
-        );
-        if (intersection.length > 2) {
-          const others = newTeams
-            .flat()
-            .filter((p) => !team.some((teamPlayer) => teamPlayer.id === p.id));
-          const replaced = others.slice(0, intersection.length);
-          const remainingTeam = team.filter(
-            (p) => !intersection.some((intP) => intP.id === p.id),
-          );
-          return [...remainingTeam, ...replaced];
-        }
-        return team;
-      });
-    }
-
-    setPreviousTeams(newTeams);
+  const handleShuffle = () => {
+    const newTeams = buildTeams({ players, teamSize: PLAYERS_PER_TEAM, history });
     setTeams(newTeams);
-    setIsShuffleModal(false);
-    setSnackbarMessage("Times sorteados com sucesso!");
-    setSnackbarSeverity("success");
-    setSnackbarOpen(true);
-  };
-
-  const handleCopyTeams = () => {
-    let teamsText = "🚨 *TIMES SORTEADOS!* 🚨\n\n";
-
-    teams.forEach((team, index) => {
-      const teamEmoji = teamColors[index]?.emoji || "";
-      teamsText += `${teamEmoji} *Time ${index + 1}:*\n`;
-
-      team.forEach((player) => {
-        const genderEmoji = player.gender === "M" ? "♂️" : "♀️";
-        teamsText += `- ${player.name} ${genderEmoji}\n`;
-      });
-
-      teamsText += "\n";
-    });
-
-    teamsText += "\n\nBy Marquinhos & Luquinhas App ©";
-
-    navigator.clipboard.writeText(teamsText).then(() => {
-      setSnackbarMessage("Times copiados! Agora é só colar no WhatsApp.");
-      setSnackbarSeverity("success");
-      setSnackbarOpen(true);
-    });
-  };
-
-  const handleCloseSnackbar = () => {
-    setSnackbarOpen(false);
-  };
-
-  const totalPlayers = players.length;
-  const maleCount = players.filter((p) => p.gender === "M").length;
-  const femaleCount = players.filter((p) => p.gender === "F").length;
-
-  const getRandomColor = () => {
-    const letters = "0123456789ABCDEF";
-    let color = "#";
-    for (let i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
-    }
-    return color;
+    pushDraw(newTeams);
+    setIsShuffleOpen(false);
+    showSnackbar("Times sorteados com sucesso!", "success");
   };
 
   return (
-    <div className="p-4 max-w-lg mx-auto font-sans">
-      <h1 className="text-3xl font-bold mb-4 text-center text-gray-800">
-        Sorteio de Times
-      </h1>
-      <p className="text-center text-sm mb-4 text-gray-500">
-        Adicione jogadores e sorteie times equilibrados.
-      </p>
+    <div className="max-w-lg mx-auto flex flex-col gap-6">
+      <div className="text-center">
+        <Typography variant="largeTitle">Sorteio de Times</Typography>
+        <Typography variant="subheadline" color="text.secondary">
+          Selecione os membros e sorteie times equilibrados.
+        </Typography>
+      </div>
 
-      <Card className="mb-6 shadow-md">
-        <CardContent>
-          <div className="flex gap-2 items-center mb-2">
-            <TextField
-              label="Nome"
-              variant="outlined"
-              size="small"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addPlayer()}
-              className="flex-1"
-            />
-            <IconButton
-              onClick={() => setGender("M")}
-              className={`rounded-full ${gender === "M" ? "bg-blue-100" : ""}`}
-            >
-              <Male sx={{ color: gender === "M" ? "blue" : "gray" }} />
-            </IconButton>
-            <IconButton
-              onClick={() => setGender("F")}
-              className={`rounded-full ${gender === "F" ? "bg-pink-100" : ""}`}
-            >
-              <Female sx={{ color: gender === "F" ? "pink" : "gray" }} />
-            </IconButton>
-            <Button
-              variant="contained"
-              onClick={addPlayer}
-              disabled={name.trim() === ""}
-            >
-              Adicionar
-            </Button>
-          </div>
+      <div className="flex flex-col gap-3">
+        <Typography variant="headline">Membros</Typography>
+        <MemberPicker members={members} selectedPlayers={players} onToggle={handleToggleMember} />
+      </div>
 
-          <div className="mb-4 text-sm text-gray-600">
-            Total: {totalPlayers} | Homens: {maleCount} | Mulheres:{" "}
-            {femaleCount}
-          </div>
+      {players.length > 0 && <PlayerList players={players} onRemove={handleRemovePlayer} />}
 
-          <List className="flex flex-wrap gap-2">
-            {players.map((player) => (
-              <Chip
-                key={player.id}
-                label={player.name}
-                onDelete={() => removePlayer(player.id)}
-                color={player.gender === "M" ? "primary" : "secondary"}
-              />
-            ))}
-          </List>
-        </CardContent>
-      </Card>
-
-      <div className="text-center mb-6 flex flex-col items-center">
-        <Button
+      <div className="flex flex-col items-center gap-3">
+        <GlassButton
           variant="contained"
           size="large"
-          startIcon={<Shuffle />}
-          onClick={handleOpenShuffleModal}
-          disabled={totalPlayers < playersPerTeam * 2}
-          sx={{ width: "fit-content" }}
+          startIcon={<ShuffleRoundedIcon />}
+          onClick={() => setIsShuffleOpen(true)}
+          disabled={players.length < MIN_PLAYERS}
         >
           Sortear Times
-        </Button>
+        </GlassButton>
 
-        {teams.length > 0 && (
-          <Button
-            variant="outlined"
-            startIcon={<ContentCopy />}
-            onClick={handleCopyTeams}
-            sx={{ width: "fit-content", marginTop: "1rem" }}
-          >
-            Copiar Times
-          </Button>
-        )}
-
-        {totalPlayers > 0 && (
-          <Button
-            variant="text"
-            startIcon={<RotateLeft />}
-            onClick={handleOpenResetModal}
+        {players.length > 0 && (
+          <GlassButton
+            variant="contained"
             color="error"
-            sx={{ width: "fit-content", marginTop: "1rem" }}
+            startIcon={<RotateLeftRoundedIcon />}
+            onClick={() => setIsResetOpen(true)}
           >
             Resetar Lista
-          </Button>
+          </GlassButton>
         )}
       </div>
 
       {teams.length > 0 && (
         <>
-          <h2 className="text-2xl font-bold mb-4 text-center text-gray-800">
-            Times Sorteados
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {teams.map((team, i) => {
-              const teamHeaderColor =
-                i < teamColors.length ? teamColors[i].header : null;
-              const teamTextColor =
-                i < teamColors.length ? teamColors[i].text : null;
-              const randomColor = getRandomColor();
-              return (
-                <Card
-                  key={i}
-                  className={`shadow-md overflow-hidden ${teamTextColor ? teamTextColor : ""} ${
-                    i === teams.length - 1 ? "mb-24" : ""
-                  }`}
-                >
-                  <div
-                    className={`flex justify-center items-center py-2 text-white font-bold ${teamHeaderColor}`}
-                    style={
-                      !teamHeaderColor ? { backgroundColor: randomColor } : {}
-                    }
-                  >
-                    Time {i + 1}
-                  </div>
-                  <CardContent>
-                    <List dense>
-                      {team.map((p, idx) => (
-                        <ListItem
-                          key={idx}
-                          className="p-0 flex items-center gap-2"
-                        >
-                          <span
-                            className={`w-3 h-3 rounded-full ${
-                              p.gender === "M" ? "bg-blue-500" : "bg-pink-500"
-                            }`}
-                          />
-                          <ListItemText primary={p.name.toUpperCase()} />
-                        </ListItem>
-                      ))}
-                    </List>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+          <TeamsCaptureArea ref={captureRef} teams={teams} members={members} />
+          <TeamsShareBar teams={teams} captureRef={captureRef} onFeedback={showSnackbar} />
         </>
       )}
+
+      <ConfirmSheet
+        open={isShuffleOpen}
+        title="Confirmar Sorteio"
+        description="Deseja realmente sortear novos times?"
+        confirmColor="success"
+        onConfirm={handleShuffle}
+        onClose={() => setIsShuffleOpen(false)}
+      />
+
+      <ConfirmSheet
+        open={isResetOpen}
+        title="Confirmação de Reset"
+        description="Tem certeza que deseja resetar a lista de jogadores e times sorteados?"
+        confirmColor="error"
+        onConfirm={handleConfirmReset}
+        onClose={() => setIsResetOpen(false)}
+      />
+
       <Snackbar
-        open={snackbarOpen}
+        open={snackbar.open}
         autoHideDuration={4000}
-        onClose={handleCloseSnackbar}
+        onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
       >
         <Alert
-          onClose={handleCloseSnackbar}
-          severity={snackbarSeverity}
+          severity={snackbar.severity}
           sx={{ width: "100%" }}
+          onClose={() => setSnackbar((s) => ({ ...s, open: false }))}
         >
-          {snackbarMessage}
+          {snackbar.message}
         </Alert>
       </Snackbar>
-
-      <Dialog
-        open={isShuffleModalOpen}
-        onClose={handleCloseShuffleModal}
-        aria-labelledby="shuffle-confirmation-title"
-        aria-describedby="shuffle-confirmation-description"
-      >
-        <DialogTitle id="shuffle-confirmation-title">
-          {"Confirmar Sorteio"}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="shuffle-confirmation-description">
-            Deseja realmente sortear novos times?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseShuffleModal} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={shuffleTeams} color="success" autoFocus>
-            Confirmar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      <Dialog
-        open={isResetModalOpen}
-        onClose={handleCloseResetModal}
-        aria-labelledby="reset-confirmation-title"
-        aria-describedby="reset-confirmation-description"
-      >
-        <DialogTitle id="reset-confirmation-title">
-          {"Confirmação de Reset"}
-        </DialogTitle>
-        <DialogContent>
-          <DialogContentText id="reset-confirmation-description">
-            Tem certeza que deseja resetar a lista de jogadores e times
-            sorteados?
-          </DialogContentText>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseResetModal} color="primary">
-            Cancelar
-          </Button>
-          <Button onClick={handleConfirmReset} color="error" autoFocus>
-            Confirmar
-          </Button>
-        </DialogActions>
-      </Dialog>
     </div>
   );
 }

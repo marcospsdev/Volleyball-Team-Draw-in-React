@@ -1,6 +1,8 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 html,
 body {
   touch-action: manipulation;
+  overscroll-behavior-y: contain;
 }
