@@ -11,11 +11,12 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["avatars/*.jpg", "avatars/*.png"],
+      includeAssets: ["avatars/*.jpg", "avatars/*.png", "logo/*.png"],
       manifest: {
-        name: "Marquinhos & Luquinhas - Sorteio de Vôlei",
-        short_name: "Sorteio de Vôlei",
+        name: "Vôlei dos Melhores",
+        short_name: "Vôlei dos Melhores",
         description: "Sorteio de times, placar e cadastro de membros do vôlei.",
+        lang: "pt-BR",
         start_url: "/team-draw",
         display: "standalone",
         background_color: "#F2F2F7",

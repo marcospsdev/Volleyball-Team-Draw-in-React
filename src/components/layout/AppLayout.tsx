@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { IOSHeader } from "@/components/ui/IOSHeader";
 import { BottomTabBar } from "@/components/ui/BottomTabBar";
 
-const APP_TITLE = "Marquinhos & Luquinhas ©";
+const APP_TITLE = "Vôlei dos Melhores";
 
 export function AppLayout({ children }: { children: ReactNode }) {
   return (

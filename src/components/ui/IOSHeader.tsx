@@ -4,8 +4,7 @@ import DarkModeRoundedIcon from "@mui/icons-material/DarkModeRounded";
 import LightModeRoundedIcon from "@mui/icons-material/LightModeRounded";
 import { useThemeMode } from "@/theme/useThemeMode";
 
-const MARQUINHOS_AVATAR = "/avatars/marcos.jpg";
-const LUQUINHAS_AVATAR = "/avatars/lucas.png";
+const LOGO = "/logo/logo-header.png";
 
 const MotionIconButton = motion.create(IconButton);
 
@@ -21,20 +20,16 @@ export function IOSHeader({ title }: IOSHeaderProps) {
       position="sticky"
       sx={{ pt: "env(safe-area-inset-top)", borderRadius: 0 }}
     >
-      <Toolbar sx={{ display: "flex", alignItems: "center", gap: 1, py: 1.5, px: 2 }}>
+      <Toolbar sx={{ display: "flex", alignItems: "center", gap: 1.5, py: 1.5, px: 2 }}>
         <Avatar
-          alt="Marquinhos"
-          src={MARQUINHOS_AVATAR}
-          sx={{ width: 36, height: 36, border: "2px solid rgba(255,255,255,0.5)", flexShrink: 0 }}
+          alt="Vôlei dos Melhores"
+          src={LOGO}
+          variant="rounded"
+          sx={{ width: 36, height: 36, flexShrink: 0, bgcolor: "transparent" }}
         />
-        <Typography variant="headline" sx={{ flexGrow: 1, textAlign: "center" }}>
+        <Typography variant="headline" sx={{ flexGrow: 1 }}>
           {title}
         </Typography>
-        <Avatar
-          alt="Luquinhas"
-          src={LUQUINHAS_AVATAR}
-          sx={{ width: 36, height: 36, border: "2px solid rgba(255,255,255,0.5)", flexShrink: 0 }}
-        />
         <MotionIconButton
           onClick={toggleMode}
           size="small"
