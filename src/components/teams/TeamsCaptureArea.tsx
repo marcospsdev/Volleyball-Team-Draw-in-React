@@ -2,9 +2,8 @@ import { forwardRef } from "react";
 import { Avatar, Typography } from "@mui/material";
 import type { Member, Team } from "@/types";
 import { TeamsGrid } from "./TeamsGrid";
-
-const MARQUINHOS_AVATAR = "/avatars/marcos.jpg";
-const LUQUINHAS_AVATAR = "/avatars/lucas.png";
+import MARQUINHOS_AVATAR from "@/assets/marcos.jpg?inline";
+import LUQUINHAS_AVATAR from "@/assets/lucas.png?inline";
 
 type TeamsCaptureAreaProps = {
   teams: Team[];

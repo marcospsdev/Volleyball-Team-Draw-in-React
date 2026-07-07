@@ -11,7 +11,7 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: "autoUpdate",
-      includeAssets: ["avatars/*.jpg", "avatars/*.png", "logo/*.png"],
+      includeAssets: ["logo/*.png"],
       manifest: {
         name: "Vôlei dos Melhores",
         short_name: "Vôlei dos Melhores",
