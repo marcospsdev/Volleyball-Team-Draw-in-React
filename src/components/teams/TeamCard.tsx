@@ -45,7 +45,11 @@ export function TeamCard({ team, index, members }: TeamCardProps) {
                     />
                   )}
                   <ListItemText
-                    primary={player.name}
+                    primary={
+                      player.isWildcard
+                        ? player.name
+                        : `${player.name} ${"⭐".repeat(player.level)}`
+                    }
                     slotProps={{
                       primary: player.isWildcard ? { sx: { fontStyle: "italic", opacity: 0.75 } } : undefined,
                     }}

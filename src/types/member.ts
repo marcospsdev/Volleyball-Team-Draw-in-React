@@ -1,4 +1,4 @@
-import type { Gender } from "./player";
+import type { Gender, Level } from "./player";
 
 export type MemberPhoto =
   | { kind: "upload"; dataUrl: string }
@@ -8,6 +8,7 @@ export type Member = {
   id: string;
   name: string;
   gender: Gender;
+  level: Level;
   photo: MemberPhoto | null;
   createdAt: number;
   updatedAt: number;

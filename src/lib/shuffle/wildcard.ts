@@ -9,6 +9,8 @@ export function createWildcardPlayers(count: number): Player[] {
     id: -(i + 1),
     name: count === 1 ? "CORINGA" : `CORINGA ${i + 1}`,
     gender: "M",
+    // Nível neutro pra não puxar o nivelamento dos times pra nenhum lado
+    level: 2,
     isWildcard: true,
   }));
 }

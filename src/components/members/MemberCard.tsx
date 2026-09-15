@@ -31,6 +31,9 @@ export function MemberCard({ member, onClick }: MemberCardProps) {
       <Typography variant="footnote" noWrap sx={{ maxWidth: 88, fontWeight: 600 }}>
         {member.name.toUpperCase()}
       </Typography>
+      <Typography variant="caption1" color="text.secondary">
+        {"⭐".repeat(member.level)}
+      </Typography>
     </motion.button>
   );
 }

@@ -9,7 +9,7 @@ type PlayerChipProps = {
 export function PlayerChip({ player, onRemove }: PlayerChipProps) {
   return (
     <Chip
-      label={player.name}
+      label={`${player.name} ${"⭐".repeat(player.level)}`}
       onDelete={() => onRemove(player.id)}
       color={player.gender === "M" ? "primary" : "secondary"}
     />

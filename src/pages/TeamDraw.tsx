@@ -53,6 +53,7 @@ function TeamDraw({ players, setPlayers, teams, setTeams }: TeamDrawProps) {
           id: Date.now(),
           name: member.name.toUpperCase(),
           gender: member.gender,
+          level: member.level,
           memberId: member.id,
         },
       ];

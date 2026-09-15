@@ -6,6 +6,9 @@ import { createWildcardPlayers } from "./wildcard";
 const DEFAULT_TEAM_SIZE = 4;
 const RESTARTS = 8;
 const ITERATIONS_PER_RESTART = 300;
+// Peso do desnível de estrelas na mesma ordem de grandeza da repetição de
+// dupla, pra nenhum dos dois objetivos dominar o outro sozinho
+const LEVEL_BALANCE_WEIGHT = 1;
 
 export type BuildTeamsOptions = {
   players: Player[];
@@ -13,6 +16,10 @@ export type BuildTeamsOptions = {
   /** Todos os sorteios anteriores da sessão atual (para minimizar repetição de duplas). */
   history?: Team[][];
 };
+
+function teamLevelSum(team: Player[]): number {
+  return team.reduce((sum, p) => sum + p.level, 0);
+}
 
 function sumPairScore(counts: PairCounts, team: Player[], candidate: Player): number {
   let score = 0;
@@ -32,6 +39,18 @@ function partitionScore(counts: PairCounts, teams: Team[]): number {
   return total;
 }
 
+/** Placar combinado de um particionamento: repetição de dupla + desnível de
+ * estrelas em relação à média ideal (soma de nível por time bem próxima
+ * entre todos). Usado pra comparar partições inteiras entre reinícios. */
+function combinedPartitionScore(counts: PairCounts, teams: Team[], idealAvgLevel: number): number {
+  const pairPart = partitionScore(counts, teams);
+  const levelPart = teams.reduce(
+    (acc, team) => acc + (teamLevelSum(team) - idealAvgLevel) ** 2,
+    0,
+  );
+  return pairPart + LEVEL_BALANCE_WEIGHT * levelPart;
+}
+
 function computeTargetSizes(
   total: number,
   numTeams: number,
@@ -43,9 +62,10 @@ function computeTargetSizes(
   return (teamIndex: number) => base + (bonusTeams.has(teamIndex) ? 1 : 0);
 }
 
-/** Aloca cada jogador no time (dentre os que ainda têm vaga) que minimiza a
- * soma de repetições de dupla com quem já está lá. Empates são resolvidos
- * aleatoriamente entre os times empatados (nunca sempre o primeiro). */
+/** Aloca cada jogador no time (dentre os que ainda têm vaga) que está mais
+ * fraco em soma de nível até agora; em caso de empate, escolhe quem minimiza
+ * a repetição de dupla com quem já está lá. Empates remanescentes são
+ * resolvidos aleatoriamente entre os times empatados (nunca sempre o primeiro). */
 function placeGreedy(
   pool: Player[],
   teams: Team[],
@@ -55,16 +75,23 @@ function placeGreedy(
 ) {
   for (const player of pool) {
     let bestTeams: number[] = [];
-    let bestScore = Infinity;
+    let bestLevelSum = Infinity;
+    let bestPairScore = Infinity;
 
     for (const teamIndex of teamOrder) {
       const team = teams[teamIndex];
       if (team.length >= targetSize(teamIndex)) continue;
-      const score = sumPairScore(counts, team, player);
-      if (score < bestScore) {
-        bestScore = score;
+      const levelSum = teamLevelSum(team);
+      const candidatePairScore = sumPairScore(counts, team, player);
+
+      if (
+        levelSum < bestLevelSum ||
+        (levelSum === bestLevelSum && candidatePairScore < bestPairScore)
+      ) {
+        bestLevelSum = levelSum;
+        bestPairScore = candidatePairScore;
         bestTeams = [teamIndex];
-      } else if (score === bestScore) {
+      } else if (levelSum === bestLevelSum && candidatePairScore === bestPairScore) {
         bestTeams.push(teamIndex);
       }
     }
@@ -103,11 +130,12 @@ function buildInitialPartition(players: Player[], teamSize: number, counts: Pair
 }
 
 /** Busca local: troca 2 jogadores do MESMO gênero entre times diferentes
- * sempre que a troca reduz o placar total de repetição de duplas. A troca
- * same-gender preserva a contagem de gênero por time automaticamente. */
-function refinePartition(initial: Team[], counts: PairCounts): Team[] {
+ * sempre que a troca reduz o placar combinado (repetição de dupla + desnível
+ * de estrelas). A troca same-gender preserva a contagem de gênero por time
+ * automaticamente. */
+function refinePartition(initial: Team[], counts: PairCounts, idealAvgLevel: number): Team[] {
   let best = initial.map((t) => [...t]);
-  let bestScore = partitionScore(counts, best);
+  let bestScore = combinedPartitionScore(counts, best, idealAvgLevel);
 
   for (let restart = 0; restart < RESTARTS; restart++) {
     const candidate = best.map((t) => [...t]);
@@ -136,8 +164,18 @@ function refinePartition(initial: Team[], counts: PairCounts): Team[] {
       const restA = teamA.filter((_, i) => i !== idxA);
       const restB = teamB.filter((_, i) => i !== idxB);
 
-      const before = sumPairScore(counts, restA, playerA) + sumPairScore(counts, restB, playerB);
-      const after = sumPairScore(counts, restA, playerB) + sumPairScore(counts, restB, playerA);
+      const pairBefore = sumPairScore(counts, restA, playerA) + sumPairScore(counts, restB, playerB);
+      const pairAfter = sumPairScore(counts, restA, playerB) + sumPairScore(counts, restB, playerA);
+
+      const sumABefore = teamLevelSum(teamA);
+      const sumBBefore = teamLevelSum(teamB);
+      const sumAAfter = sumABefore - playerA.level + playerB.level;
+      const sumBAfter = sumBBefore - playerB.level + playerA.level;
+      const levelBefore = (sumABefore - idealAvgLevel) ** 2 + (sumBBefore - idealAvgLevel) ** 2;
+      const levelAfter = (sumAAfter - idealAvgLevel) ** 2 + (sumBAfter - idealAvgLevel) ** 2;
+
+      const before = pairBefore + LEVEL_BALANCE_WEIGHT * levelBefore;
+      const after = pairAfter + LEVEL_BALANCE_WEIGHT * levelAfter;
 
       if (after < before) {
         teamA[idxA] = playerB;
@@ -163,7 +201,10 @@ export function buildTeams({ players, teamSize = DEFAULT_TEAM_SIZE, history = []
   const missing = remainder === 0 ? 0 : teamSize - remainder;
   const playersToDraw = missing > 0 ? [...players, ...createWildcardPlayers(missing)] : players;
 
+  const numTeams = Math.max(1, Math.ceil(playersToDraw.length / teamSize));
+  const idealAvgLevel = teamLevelSum(playersToDraw) / numTeams;
+
   const counts = buildPairCounts(history);
   const initial = buildInitialPartition(playersToDraw, teamSize, counts);
-  return refinePartition(initial, counts);
+  return refinePartition(initial, counts, idealAvgLevel);
 }

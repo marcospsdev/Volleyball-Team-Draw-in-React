@@ -11,7 +11,12 @@ export function useMembers() {
     let cancelled = false;
     listMembers()
       .then((loaded) => {
-        if (!cancelled) setMembers(loaded);
+        // Membros salvos antes da feature de nível não têm essa propriedade
+        const normalized = loaded.map((member) => ({
+          ...member,
+          level: member.level ?? 2,
+        }));
+        if (!cancelled) setMembers(normalized);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -22,12 +27,13 @@ export function useMembers() {
   }, []);
 
   const addMember = useCallback(
-    async (input: Pick<Member, "name" | "gender" | "photo">) => {
+    async (input: Pick<Member, "name" | "gender" | "photo" | "level">) => {
       const now = Date.now();
       const member: Member = {
         id: generateId(),
         name: input.name,
         gender: input.gender,
+        level: input.level,
         photo: input.photo,
         createdAt: now,
         updatedAt: now,
@@ -42,7 +48,7 @@ export function useMembers() {
   );
 
   const updateMember = useCallback(
-    async (id: string, input: Pick<Member, "name" | "gender" | "photo">) => {
+    async (id: string, input: Pick<Member, "name" | "gender" | "photo" | "level">) => {
       const existing = members.find((m) => m.id === id);
       if (!existing) return;
       const updated: Member = {

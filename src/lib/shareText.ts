@@ -10,7 +10,8 @@ export function buildShareText(teams: Team[]): string {
 
     team.forEach((player) => {
       const emoji = player.isWildcard ? "🃏" : player.gender === "M" ? "♂️" : "♀️";
-      text += `- ${player.name} ${emoji}\n`;
+      const stars = player.isWildcard ? "" : ` ${"⭐".repeat(player.level)}`;
+      text += `- ${player.name} ${emoji}${stars}\n`;
     });
 
     text += "\n";

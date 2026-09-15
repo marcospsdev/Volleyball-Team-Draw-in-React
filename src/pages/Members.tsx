@@ -7,7 +7,7 @@ import { MembersList } from "@/components/members/MembersList";
 import { MemberForm } from "@/components/members/MemberForm";
 import { ConfirmSheet } from "@/components/ui/ConfirmSheet";
 import { FixedPortal } from "@/components/ui/FixedPortal";
-import type { Gender, Member, MemberPhoto } from "@/types";
+import type { Gender, Level, Member, MemberPhoto } from "@/types";
 
 const MotionFab = motion.create(Fab);
 
@@ -28,7 +28,7 @@ function Members() {
     setFormOpen(true);
   };
 
-  const handleSave = async (input: { name: string; gender: Gender; photo: MemberPhoto | null }) => {
+  const handleSave = async (input: { name: string; gender: Gender; level: Level; photo: MemberPhoto | null }) => {
     if (editingMember) {
       await updateMember(editingMember.id, input);
     } else {
