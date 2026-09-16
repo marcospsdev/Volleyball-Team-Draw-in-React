@@ -8,7 +8,11 @@ export async function shareOrDownloadImage(
   backgroundColor: string,
 ): Promise<ShareImageResult> {
   try {
-    const blob = await toBlob(node, { pixelRatio: 2, backgroundColor });
+    const blob = await toBlob(node, {
+      pixelRatio: 2,
+      backgroundColor,
+      filter: (el) => !(el instanceof HTMLElement && el.dataset.shareHide === "true"),
+    });
     if (!blob) return "failed";
 
     const file = new File([blob], fileName, { type: "image/png" });

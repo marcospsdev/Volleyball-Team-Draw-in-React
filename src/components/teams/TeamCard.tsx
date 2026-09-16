@@ -13,6 +13,7 @@ type TeamCardProps = {
 
 export function TeamCard({ team, index, members }: TeamCardProps) {
   const color = getTeamColor(index);
+  const totalLevel = team.reduce((sum, p) => sum + p.level, 0);
 
   return (
     <motion.div
@@ -26,6 +27,14 @@ export function TeamCard({ team, index, members }: TeamCardProps) {
           <div className="flex items-center gap-2 mb-3">
             <IconCircle emoji={color.emoji} color={color.hex} size={22} />
             <Typography variant="headline">Time {index + 1}</Typography>
+            <Typography
+              variant="footnote"
+              color="text.secondary"
+              component="span"
+              data-share-hide="true"
+            >
+              ({totalLevel})
+            </Typography>
           </div>
           <List dense disablePadding>
             {team.map((player) => {
